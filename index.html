@@ -425,11 +425,11 @@
   <div class="config-section">
     <div class="config-section-title">Fuente de datos (Google Sheets)</div>
     <div class="config-row">
-      <input type="text" id="csvUrl" placeholder="Link CSV hoja Tarifario">
+      <input type="text" id="csvUrl" placeholder="Link CSV hoja Tarifario" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQZsvB8q9wwuj0EJcNTFG9LOs2OhoU46FuhwLeQRKdZUx9TMdqgltXxT053KncdKw/pub?gid=112708375&single=true&output=csv">
       <button class="config-btn" onclick="loadData()">Cargar</button>
     </div>
     <div class="config-row">
-      <input type="text" id="csvUrlGratuito" placeholder="Link CSV hoja Traslado_Gratuito (opcional)">
+      <input type="text" id="csvUrlGratuito" placeholder="Link CSV hoja Traslado_Gratuito (opcional)" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQZsvB8q9wwuj0EJcNTFG9LOs2OhoU46FuhwLeQRKdZUx9TMdqgltXxT053KncdKw/pub?gid=1724138762&single=true&output=csv">
       <button class="config-btn" onclick="loadGratuitos()">Cargar</button>
     </div>
     <div class="config-status" id="configStatus"></div>
@@ -1622,12 +1622,37 @@ function changeLogo(e){
 
 renderKidAges();
 
-DATA = sampleData();
-populatePaises();
-setStatus(DATA.length + ' tarifas de ejemplo cargadas. Pegá tu link CSV y tocá "Cargar tarifario" para usar tus datos reales.', false);
-
-// Inicializar vista: simple visible, circuito oculto
+// Inicializar vista
 setMode('simple');
+
+// Autocargar tarifas reales al abrir
+(function autoLoad(){
+  setStatus('Cargando tarifas...', false);
+  Papa.parse('https://docs.google.com/spreadsheets/d/e/2PACX-1vQZsvB8q9wwuj0EJcNTFG9LOs2OhoU46FuhwLeQRKdZUx9TMdqgltXxT053KncdKw/pub?gid=112708375&single=true&output=csv', {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(r) {
+      if(r.data && r.data.length > 0) {
+        DATA = r.data.map(normalizeRow);
+        populatePaises();
+        setStatus(DATA.length + ' tarifas cargadas ✓', false);
+      } else {
+        DATA = sampleData(); populatePaises();
+        setStatus('CSV vacío. Usando datos de ejemplo.', false);
+      }
+    },
+    error: function() {
+      DATA = sampleData(); populatePaises();
+      setStatus('Error al cargar tarifas. Usando datos de ejemplo.', false);
+    }
+  });
+  Papa.parse('https://docs.google.com/spreadsheets/d/e/2PACX-1vQZsvB8q9wwuj0EJcNTFG9LOs2OhoU46FuhwLeQRKdZUx9TMdqgltXxT053KncdKw/pub?gid=1724138762&single=true&output=csv', {
+    download: true, header: true, skipEmptyLines: true,
+    complete: function(r) {
+      if(r.data && r.data.length > 0) DATA_GRATUITOS = r.data.map(normalizeRow);
+    },
+    error: function() {}
+  });
+})();
 
 /* ===== UI extras ===== */
 
@@ -1661,26 +1686,6 @@ function setStatus(msg, isError){
   if(el){ el.textContent = msg; el.style.color = isError ? '#B23A2F' : 'var(--muted)'; }
 }
 
-/* Render cart bar */
-function renderCartBar(){
-  const filled = Object.keys(cart).filter(k=>cart[k]).length;
-  const expectedSlots = getExpectedSlots();
-  if(filled === 0){ document.getElementById('cartBar').classList.remove('visible'); return; }
-  const total = calcTotal();
-  const moneda = Object.values(cart).filter(Boolean)[0]?.moneda || '';
-  document.getElementById('cartBar').classList.add('visible');
-  document.getElementById('cartAmount').textContent = fmtMoney(total, moneda);
-  const allDone = filled >= expectedSlots.length;
-  document.getElementById('cartSub').textContent = allDone
-    ? 'Total seleccionado'
-    : `Total parcial · ${filled} de ${expectedSlots.length} elegidos`;
-}
-
-/* Init */
-setMode('simple');
-DATA = sampleData();
-populatePaises();
-setStatus(DATA.length + ' tarifas de ejemplo cargadas. Pegá tu link CSV y tocá "Cargar tarifario" para usar tus datos reales.', false);
 
 /* IMPORT IMAGEN */
 let importImageB64 = null;
